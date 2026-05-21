@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPSスタンプラリー / チェックポイント表示</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        /* 初期状態では隠しておく秘密のページ（コンテンツ） */
+        #secret-page {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #EFFFEC;
+            border: 2px solid #4CD964;
+            border-radius: 8px;
+        }
+        .status {
+            margin: 20px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>GPSチェックポイント</h2>
+    <p>指定の場所に到着すると、秘密のページが表示されます。</p>
+    
+    <button onclick="startTracking()">GPS追跡を開始する</button>
+    
+    <div class="status">
+        <p id="current-pos">現在地: 未取得</p>
+        <p id="distance">目標までの距離: -- m</p>
+    </div>
+
+    <!-- 到着時に表示される隠しコンテンツ -->
+    <div id="secret-page">
+        <h3>🎉 目標地点に到着しました！</h3>
+        <p>ここに限定クーポンや、特別な限定ページのコンテンツを書き込みます。</p>
+        <img src="https://via.placeholder.com/150" alt="限定画像" style="margin-top: 10px;">
+    </div>
+</div>
+
+<script>
+// ==========================================
+// 【設定】目標地点の座標（例：東京駅の丸の内駅舎付近）
+// ==========================================
+const TARGET_LAT = 35.681236; // 目標の緯度
+const TARGET_LNG = 139.767125; // 目標の経度
+const ARRIVAL_RADIUS = 50;     // 到着と判定する距離（メートル）
+
+let watchId = null;
+
+// GPS追跡の開始
+function startTracking() {
+    if (!navigator.geolocation) {
+        alert("お使いのブラウザはGPS（位置情報）に対応していません。");
+        return;
+    }
+
+    // リアルタイムで位置情報を監視 (ユーザーの移動に合わせて何度も実行される)
+    watchId = navigator.geolocation.watchPosition(successGPS, errorGPS, {
+        enableHighAccuracy: true, // 高精度なGPS情報を要求
+        timeout: 10000,           // 10秒でタイムアウト
+        maximumAge: 0             // キャッシュされた位置情報は使わない
+    });
+}
+
+// GPS取得成功時の処理
+function successGPS(position) {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    
+    document.getElementById("current-pos").innerText = `現在地: 緯度 ${lat.toFixed(5)}, 経度 ${lng.toFixed(5)}`;
+    
+    // 現在地から目標地点までの距離を計算（メートル）
+    const distance = getDistance(lat, lng, TARGET_LAT, TARGET_LNG);
+    document.getElementById("distance").innerText = `目標までの距離: 約 ${Math.round(distance)} m`;
+    
+    // 指定した距離（例: 50m）以内に近づいたか判定
+    if (distance <= ARRIVAL_RADIUS) {
+        // 隠していたページ（要素）を表示する
+        document.getElementById("secret-page").style.display = "block";
+        
+        // 到着したらGPS追跡を止める場合は以下を有効にする
+        // navigator.geolocation.clearWatch(watchId);
+    } else {
+        // 離れたらまた隠す場合
+        document.getElementById("secret-page").style.display = "none";
+    }
+}
+
+// GPS取得失敗時の処理
+function errorGPS(error) {
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            alert("位置情報の利用が許可されていません。設定から許可してください。");
+            break;
+        case error.POSITION_UNAVAILABLE:
+            alert("位置情報が取得できませんでした。");
+            break;
+        case error.TIMEOUT:
+            alert("位置情報の取得にタイムアウトしました。");
+            break;
+    }
+}
+
+// 2点間の緯度経度から距離（メートル）を計算する関数（ヒュベニの公式の簡易版）
+function getDistance(lat1, lng1, lat2, lng2) {
+    function rad(deg) { return deg * Math.PI / 180; }
+    const R = 6371000; // 地球の半径 (ｍ)
+    const dLat = rad(lat2 - lat1);
+    const dLng = rad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // 距離 (m)
+}
+</script>
+
+</body>
+</html>
